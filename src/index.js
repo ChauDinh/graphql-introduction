@@ -6,6 +6,10 @@ const typeDefs = gql`
   type Query {
     hello: String!
   }
+
+  type Mutation {
+    register: User
+  }
 `;
 
 // Then, create a resolver
