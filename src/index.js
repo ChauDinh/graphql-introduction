@@ -11,6 +11,7 @@ const typeDefs = gql`
   type User {
     id: Int!
     username: String!
+    firstLetterOfUsername: String!
   }
 
   type Error {
@@ -37,6 +38,14 @@ const typeDefs = gql`
 
 // Then, create a resolver
 const resolvers = {
+  User: {
+    firstLetterOfUsername: parent => {
+      return parent.username[0];
+    },
+    username: parent => {
+      return parent.username;
+    }
+  },
   Query: {
     hello: (parent, { name }, context, info) => {
       return name;
@@ -63,13 +72,22 @@ const resolvers = {
         }
       ]
     }),
-    login: (parent, { userInfo: { username } }, context, info) => {
+    login: async (parent, { userInfo: { username } }, context, info) => {
+      // checking the password
+      // await checkPassword(password);
       return username;
     }
   }
 };
 
 // Create an instance of Apollo Server
-const server = new ApolloServer({ typeDefs, resolvers });
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  context: ({ req, res }) => ({
+    req,
+    res
+  })
+});
 
 server.listen().then(({ url }) => console.log("server is listenning at ", url));
