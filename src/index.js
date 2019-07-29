@@ -1,4 +1,4 @@
-const { ApolloServer, gql } = require("apollo-server");
+const { ApolloServer, gql, PubSub } = require("apollo-server");
 
 // The first part of the GraphQL is creating a schema or also known as typeDefs
 
@@ -10,8 +10,8 @@ const typeDefs = gql`
 
   type User {
     id: Int!
-    username: String!
-    firstLetterOfUsername: String!
+    username: String
+    firstLetterOfUsername: String
   }
 
   type Error {
@@ -25,7 +25,7 @@ const typeDefs = gql`
   }
 
   input UserInfo {
-    username: String!
+    username: String
     password: String!
     age: Int!
   }
@@ -34,18 +34,25 @@ const typeDefs = gql`
     register(userInfo: UserInfo!): RegisterResponse!
     login(userInfo: UserInfo!): String!
   }
+
+  type Subscription {
+    newUser: User!
+  }
 `;
+
+const NEW_USER = "NEW_USER";
 
 // Then, create a resolver
 const resolvers = {
   User: {
     firstLetterOfUsername: parent => {
-      return parent.username[0];
+      return parent.username ? parent.username[0] : null;
     },
     username: parent => {
       return parent.username;
     }
   },
+
   Query: {
     hello: (parent, { name }, context, info) => {
       return name;
@@ -56,29 +63,46 @@ const resolvers = {
     })
   },
   Mutation: {
-    register: () => ({
-      user: {
+    register: (_, { userInfo: { username } }, { pubsub }) => {
+      const user = {
         id: 1,
-        username: "Bob"
-      },
-      errors: [
-        {
-          field: "username",
-          message: "bad!"
+        username
+      };
+      pubsub.publish(NEW_USER, {
+        newUser: user
+      });
+      return {
+        user: {
+          id: 1,
+          username: "Bob"
         },
-        {
-          field: "username2",
-          message: "bad2!"
-        }
-      ]
-    }),
+        errors: [
+          {
+            field: "username",
+            message: "bad!"
+          },
+          {
+            field: "username2",
+            message: "bad2!"
+          }
+        ]
+      };
+    },
     login: async (parent, { userInfo: { username } }, context, info) => {
       // checking the password
       // await checkPassword(password);
       return username;
     }
+  },
+
+  Subscription: {
+    newUser: {
+      subscribe: (_, __, { pubsub }) => pubsub.asyncIterator(NEW_USER)
+    }
   }
 };
+
+const pubsub = new PubSub();
 
 // Create an instance of Apollo Server
 const server = new ApolloServer({
@@ -86,7 +110,8 @@ const server = new ApolloServer({
   resolvers,
   context: ({ req, res }) => ({
     req,
-    res
+    res,
+    pubsub
   })
 });
 
